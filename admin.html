@@ -1,0 +1,69 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery Admin â€” Ayurhitham (Private)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="assets/logo.png" type="image/png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <a href="index.html" class="brand">
+      <img src="assets/logo.png" alt="Ayurhitham" class="brand-mark">
+      <span class="brand-word">Ayurhitham<small>Gallery Admin Â· Private</small></span>
+    </a>
+    <div class="nav-cta">
+      <a href="gallery.html" class="btn btn-line">View public gallery</a>
+    </div>
+  </nav>
+</header>
+
+<main class="section">
+  <div class="container admin-shell">
+
+    <h1 style="margin-bottom:6px">Gallery manager</h1>
+    <p class="lede">Add or remove the photos shown on the public Gallery page. This page is not linked from the site's navigation â€” keep its address and your GitHub token private.</p>
+
+    <div class="admin-note">
+      <strong>How this works:</strong> there's no database or server here â€” photos are files stored in a GitHub repository, and this page talks to GitHub directly from your browser using a Personal Access Token. The token is kept only for this browser tab (it clears itself when you close the tab) and is never saved into any file in this project.
+      <br><br>
+      <strong>First-time setup:</strong> (1) create a public GitHub repository for the gallery, (2) open <code>js/config.js</code> in this project and fill in your GitHub username, the repo name and the image folder, (3) create a <em>fine-grained</em> Personal Access Token on GitHub scoped only to that repository with "Contents: Read and write" permission, and paste it below.
+    </div>
+
+    <div class="field">
+      <label for="gh-token">GitHub Personal Access Token</label>
+      <input type="password" id="gh-token" placeholder="github_pat_â€¦" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+      <button type="button" id="save-token" class="btn btn-gold">Connect</button>
+      <button type="button" id="clear-token" class="btn btn-line">Disconnect</button>
+    </div>
+    <p id="conn-status" style="font-size:.86rem;margin-bottom:30px"></p>
+
+    <h3>Add photos</h3>
+    <div class="drop-zone" id="drop-zone">
+      <p style="margin:0">Drag and drop photos here, or click to choose files</p>
+      <p style="margin:6px 0 0;font-size:.8rem">JPG, PNG, WEBP or GIF â€” up to 8MB each</p>
+      <input type="file" id="file-input" accept="image/*" multiple hidden>
+    </div>
+    <div class="admin-list" id="upload-list"></div>
+    <p id="admin-status" class="status-msg"></p>
+
+    <h3 style="margin-top:44px">Current gallery photos</h3>
+    <div style="margin-bottom:14px">
+      <button type="button" id="refresh-list" class="btn btn-line" style="padding:10px 20px;font-size:.85rem">Refresh list</button>
+    </div>
+    <div class="admin-list" id="admin-list"></div>
+
+  </div>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
+
