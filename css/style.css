@@ -154,7 +154,7 @@ p{ margin:0 0 1em; color:var(--ink-600); max-width:62ch; }
 }
 .nav-toggle span{ width:24px; height:2px; background:var(--forest-800); transition:transform .3s, opacity .3s; }
 
-@media (max-width: 960px){
+@media (max-width: 1200px){
   .site-header{ background:var(--sand-100); backdrop-filter:none; }
   .nav-links{
     position:fixed; inset:76px 0 0 0; background:var(--sand-100);
