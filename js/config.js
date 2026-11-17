@@ -10,8 +10,8 @@
    so you only need to set it once.
    ========================================================= */
 window.GALLERY_CONFIG = {
-  owner:  "YOUR-GITHUB-USERNAME",   // e.g. "ayurhitham"
-  repo:   "YOUR-REPO-NAME",        // e.g. "ayurhitham-gallery"
+  owner:  "DITTY-DENNY-2005",
+  repo:   "Ayurhitham",
   branch: "main",                  // the repo's default branch
   path:   "gallery-images"         // folder inside the repo that holds images
 };

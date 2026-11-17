@@ -13,6 +13,7 @@ gallery.html         Gallery (public — reads photos from GitHub)
 admin.html           Gallery manager (private — add/remove photos)
 contact.html         Contact (address + Google Map, no contact form)
 book.html            Book Now (sends the request via WhatsApp)
+homestay.html        Homestay details and Airbnb booking link
 css/style.css        All styling
 js/main.js           Navigation, animations, scroll reveal, WhatsApp button
 js/config.js         Gallery storage settings (edit this first — see below)
