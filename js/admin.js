@@ -1,219 +1,162 @@
-/* =========================================================
-   GALLERY ADMIN (upload / delete via GitHub Contents API)
-   -----------------------------------------------------------
-   No database, no server: images live as files in a GitHub repo
-   (see config.js) and this page talks to GitHub's API directly
-   from the browser using a Personal Access Token that YOU paste
-   in each time you manage the gallery.
-
-   The token is kept only in sessionStorage (cleared the moment
-   this browser tab is closed) and is never written into any
-   file in this project. Use a fine-grained token scoped to just
-   the gallery repo, with Contents: Read & write permission only.
-   ========================================================= */
 (function(){
   "use strict";
-  var cfg = window.GALLERY_CONFIG || {};
-  var TOKEN_KEY = "ayurhitham_gh_token";
+  var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-  var tokenInput   = document.getElementById("gh-token");
-  var saveTokenBtn = document.getElementById("save-token");
-  var clearTokenBtn= document.getElementById("clear-token");
-  var connStatus   = document.getElementById("conn-status");
-  var dropZone     = document.getElementById("drop-zone");
-  var fileInput    = document.getElementById("file-input");
-  var uploadList   = document.getElementById("upload-list");
-  var adminList    = document.getElementById("admin-list");
-  var refreshBtn   = document.getElementById("refresh-list");
-  var statusMsg    = document.getElementById("admin-status");
-
-  function getToken(){ return sessionStorage.getItem(TOKEN_KEY) || ""; }
-  function setToken(t){ sessionStorage.setItem(TOKEN_KEY, t); }
-  function dropToken(){ sessionStorage.removeItem(TOKEN_KEY); }
-
-  function setStatus(msg, kind){
-    if (!statusMsg) return;
-    statusMsg.textContent = msg || "";
-    statusMsg.className = "status-msg" + (kind ? " " + kind : "");
+  function request(url, options){
+    options = options || {};
+    options.headers = Object.assign({}, options.headers || {}, {
+      "X-CSRF-Token": csrfToken,
+      "Accept": "application/json"
+    });
+    return fetch(url, options).then(function(response){
+      return response.json().catch(function(){ return {}; }).then(function(data){
+        if (!response.ok) {
+          if (response.status === 401) window.location.reload();
+          throw new Error(data.error || "Request failed (" + response.status + ").");
+        }
+        return data;
+      });
+    });
   }
 
-  function refreshConnUI(){
-    var has = !!getToken();
-    if (connStatus){
-      connStatus.textContent = has ? "Connected for this browser tab." : "Not connected — paste a token to manage photos.";
-      connStatus.style.color = has ? "#2F6B3D" : "#A5301F";
+  document.querySelectorAll("[data-media-manager]").forEach(function(manager){
+    var collection = manager.getAttribute("data-collection");
+    var dropZone = manager.querySelector("[data-drop-zone]");
+    var fileInput = manager.querySelector("[data-file-input]");
+    var uploadList = manager.querySelector("[data-upload-list]");
+    var imageList = manager.querySelector("[data-image-list]");
+    var status = manager.querySelector("[data-status]");
+
+    function setStatus(message, kind){
+      status.textContent = message || "";
+      status.className = "status-msg" + (kind ? " " + kind : "");
     }
-    if (tokenInput) tokenInput.value = has ? getToken() : "";
-  }
 
-  if (saveTokenBtn){
-    saveTokenBtn.addEventListener("click", function(){
-      var v = (tokenInput.value || "").trim();
-      if (!v){ setStatus("Paste a GitHub token first.", "err"); return; }
-      setToken(v);
-      refreshConnUI();
-      setStatus("Token saved for this tab.", "ok");
-      loadList();
-    });
-  }
-  if (clearTokenBtn){
-    clearTokenBtn.addEventListener("click", function(){
-      dropToken();
-      refreshConnUI();
-      setStatus("Token cleared.", "ok");
-    });
-  }
+    function showEmptyList(){
+      var message = document.createElement("p");
+      message.className = "admin-empty";
+      message.textContent = "No photos yet - upload some above.";
+      imageList.replaceChildren(message);
+    }
 
-  function authHeaders(){
-    return {
-      "Accept": "application/vnd.github+json",
-      "Authorization": "Bearer " + getToken()
-    };
-  }
+    function createRow(image){
+      var row = document.createElement("div");
+      row.className = "admin-row";
+      var thumbnail = document.createElement("img");
+      thumbnail.src = image.url;
+      thumbnail.alt = "";
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = image.original_name;
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", function(){
+        if (!window.confirm('Remove "' + image.original_name + '" from this section?')) return;
+        remove.disabled = true;
+        request("api/gallery.php", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: image.filename, type: collection })
+        }).then(function(){
+          row.remove();
+          if (!imageList.children.length) showEmptyList();
+          setStatus("Photo removed.", "ok");
+        }).catch(function(error){
+          remove.disabled = false;
+          setStatus(error.message, "err");
+        });
+      });
+      row.appendChild(thumbnail);
+      row.appendChild(name);
+      row.appendChild(remove);
+      return row;
+    }
 
-  function contentsUrl(filename){
-    var path = cfg.path + (filename ? "/" + filename : "");
-    return "https://api.github.com/repos/" + cfg.owner + "/" + cfg.repo + "/contents/" + path;
-  }
-
-  function fileToBase64(file){
-    return new Promise(function(resolve, reject){
-      var reader = new FileReader();
-      reader.onload = function(){ resolve(reader.result.split(",")[1]); };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  function slugifyName(name){
-    var dot = name.lastIndexOf(".");
-    var base = (dot > -1 ? name.slice(0,dot) : name).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-    var ext = dot > -1 ? name.slice(dot) : "";
-    return Date.now() + "-" + (base || "photo") + ext.toLowerCase();
-  }
-
-  /* ---------- List existing images ---------- */
-  function loadList(){
-    if (!getToken()){ adminList.innerHTML = ""; return; }
-    adminList.innerHTML = '<p style="color:var(--ink-400);font-size:.88rem">Loading current photos…</p>';
-    fetch(contentsUrl() + "?ref=" + cfg.branch + "&t=" + Date.now(), { headers: authHeaders() })
-      .then(function(res){
-        if (res.status === 404) return [];
-        if (!res.ok) throw new Error("Couldn't list the gallery folder (" + res.status + ").");
-        return res.json();
-      })
-      .then(function(data){
-        var files = (Array.isArray(data) ? data : [])
-          .filter(function(f){ return f.type === "file" && /\.(jpe?g|png|webp|gif|avif)$/i.test(f.name); });
-        if (!files.length){
-          adminList.innerHTML = '<p style="color:var(--ink-400);font-size:.88rem">No photos yet — upload some below.</p>';
+    function loadList(){
+      imageList.textContent = "Loading photos...";
+      request("api/gallery.php?type=" + encodeURIComponent(collection)).then(function(data){
+        var images = Array.isArray(data.images) ? data.images : [];
+        imageList.replaceChildren();
+        if (!images.length) {
+          showEmptyList();
           return;
         }
-        adminList.innerHTML = "";
-        files.forEach(function(f){
-          var row = document.createElement("div");
-          row.className = "admin-row";
-          row.innerHTML = '<img src="' + f.download_url + '" alt="">' +
-                           '<span class="name">' + f.name + '</span>' +
-                           '<button type="button">Remove</button>';
-          row.querySelector("button").addEventListener("click", function(){
-            removeFile(f.name, f.sha, row);
-          });
-          adminList.appendChild(row);
-        });
-      })
-      .catch(function(err){
-        setStatus(err.message || "Couldn't load the gallery list.", "err");
+        images.forEach(function(image){ imageList.appendChild(createRow(image)); });
+      }).catch(function(error){
+        imageList.textContent = "";
+        setStatus(error.message, "err");
       });
-  }
-  if (refreshBtn) refreshBtn.addEventListener("click", loadList);
+    }
 
-  /* ---------- Delete ---------- */
-  function removeFile(name, sha, row){
-    if (!confirm('Remove "' + name + '" from the gallery?')) return;
-    row.style.opacity = ".5";
-    fetch(contentsUrl(name), {
-      method: "DELETE",
-      headers: Object.assign({ "Content-Type":"application/json" }, authHeaders()),
-      body: JSON.stringify({
-        message: "Remove gallery photo: " + name,
-        sha: sha,
-        branch: cfg.branch
-      })
-    })
-    .then(function(res){
-      if (!res.ok) throw new Error("Delete failed (" + res.status + "). Check the token's permissions.");
-      row.remove();
-      setStatus('Removed "' + name + '".', "ok");
-    })
-    .catch(function(err){
-      row.style.opacity = "1";
-      setStatus(err.message, "err");
-    });
-  }
+    function uploadOne(file){
+      var row = document.createElement("div");
+      row.className = "admin-row";
+      var thumbnail = document.createElement("img");
+      thumbnail.alt = "";
+      thumbnail.src = URL.createObjectURL(file);
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = file.name + " - uploading...";
+      row.appendChild(thumbnail);
+      row.appendChild(name);
+      uploadList.appendChild(row);
 
-  /* ---------- Upload ---------- */
-  function uploadOne(file){
-    var row = document.createElement("div");
-    row.className = "admin-row";
-    var safeName = slugifyName(file.name);
-    row.innerHTML = '<img alt="">' +
-                     '<span class="name">' + file.name + '<div class="progress"><span></span></div></span>';
-    uploadList.appendChild(row);
-    var bar = row.querySelector(".progress > span");
-    var thumb = row.querySelector("img");
-    var reader = new FileReader();
-    reader.onload = function(){ thumb.src = reader.result; };
-    reader.readAsDataURL(file);
+      var form = new FormData();
+      form.append("image", file);
+      form.append("type", collection);
+      request("api/gallery.php", { method: "POST", body: form }).then(function(data){
+        name.textContent = data.image.original_name + " - uploaded";
+        setStatus("Photo uploaded.", "ok");
+        loadList();
+      }).catch(function(error){
+        name.textContent = file.name + " - " + error.message;
+        setStatus(error.message, "err");
+      }).then(function(){ URL.revokeObjectURL(thumbnail.src); });
+    }
 
-    bar.style.width = "15%";
-    fileToBase64(file).then(function(b64){
-      bar.style.width = "55%";
-      return fetch(contentsUrl(safeName), {
-        method: "PUT",
-        headers: Object.assign({ "Content-Type":"application/json" }, authHeaders()),
-        body: JSON.stringify({
-          message: "Add gallery photo: " + safeName,
-          content: b64,
-          branch: cfg.branch
-        })
+    function handleFiles(fileList){
+      var files = Array.prototype.slice.call(fileList);
+      if (!files.length) return;
+      var invalid = files.find(function(file){
+        return !/^image\/(jpeg|png|webp|gif|avif)$/.test(file.type) || file.size < 1 || file.size > 8 * 1024 * 1024;
       });
-    })
-    .then(function(res){
-      if (!res.ok) return res.json().then(function(j){ throw new Error((j && j.message) || ("Upload failed (" + res.status + ")")); });
-      bar.style.width = "100%";
-      row.querySelector(".name").innerHTML = safeName + ' <span style="color:#2F6B3D">✓ uploaded</span>';
-      loadList();
-    })
-    .catch(function(err){
-      row.querySelector(".name").innerHTML = file.name + ' <span style="color:#A5301F">✗ ' + err.message + '</span>';
+      if (invalid) {
+        setStatus('"' + invalid.name + '" is not a supported image or exceeds the 8 MB limit.', "err");
+        return;
+      }
+      setStatus("Uploading " + files.length + " photo(s)...", "ok");
+      files.forEach(uploadOne);
+    }
+
+    fileInput.addEventListener("change", function(){
+      handleFiles(fileInput.files);
+      fileInput.value = "";
     });
-  }
-
-  function handleFiles(fileList){
-    if (!getToken()){ setStatus("Paste and save your GitHub token first.", "err"); return; }
-    var files = Array.prototype.slice.call(fileList).filter(function(f){ return /^image\//.test(f.type); });
-    if (!files.length){ setStatus("Choose image files (JPG, PNG, WEBP, GIF).", "err"); return; }
-    var tooBig = files.find(function(f){ return f.size > 8 * 1024 * 1024; });
-    if (tooBig){ setStatus('"' + tooBig.name + '" is over 8MB — please compress it first.', "err"); return; }
-    setStatus("Uploading " + files.length + " photo(s)…", "ok");
-    files.forEach(uploadOne);
-  }
-
-  if (fileInput) fileInput.addEventListener("change", function(){ handleFiles(fileInput.files); fileInput.value=""; });
-  if (dropZone){
     dropZone.addEventListener("click", function(){ fileInput.click(); });
-    ["dragenter","dragover"].forEach(function(evt){
-      dropZone.addEventListener(evt, function(e){ e.preventDefault(); dropZone.classList.add("drag"); });
+    dropZone.addEventListener("keydown", function(event){
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        fileInput.click();
+      }
     });
-    ["dragleave","drop"].forEach(function(evt){
-      dropZone.addEventListener(evt, function(e){ e.preventDefault(); dropZone.classList.remove("drag"); });
+    ["dragenter", "dragover"].forEach(function(eventName){
+      dropZone.addEventListener(eventName, function(event){
+        event.preventDefault();
+        dropZone.classList.add("drag");
+      });
     });
-    dropZone.addEventListener("drop", function(e){
-      if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    ["dragleave", "drop"].forEach(function(eventName){
+      dropZone.addEventListener(eventName, function(event){
+        event.preventDefault();
+        dropZone.classList.remove("drag");
+      });
     });
-  }
+    dropZone.addEventListener("drop", function(event){
+      if (event.dataTransfer) handleFiles(event.dataTransfer.files);
+    });
+    manager.querySelector("[data-refresh]").addEventListener("click", loadList);
 
-  refreshConnUI();
-  loadList();
+    loadList();
+  });
 })();

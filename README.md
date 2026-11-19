@@ -1,84 +1,60 @@
-# Ayurhitham — Ayurveda Wellness Hospital website
+# Ayurhitham - Ayurveda Wellness Hospital website
 
-A static HTML/CSS/JS site. No build step, no backend, no database.
+The public pages are HTML/CSS/JavaScript. The gallery admin and gallery photo
+storage use PHP and MySQL, so this site must run on a PHP-enabled web server;
+opening the files directly or using static hosting alone will not run the
+admin or load the gallery.
 
-## Files
-```
-index.html          Home
-about.html           About
-departments.html     Departments
-treatments.html      Treatments
-team.html            Our Team
-gallery.html         Gallery (public — reads photos from GitHub)
-admin.html           Gallery manager (private — add/remove photos)
-contact.html         Contact (address + Google Map, no contact form)
-book.html            Book Now (sends the request via WhatsApp)
-homestay.html        Homestay details and Airbnb booking link
-css/style.css        All styling
-js/main.js           Navigation, animations, scroll reveal, WhatsApp button
-js/config.js         Gallery storage settings (edit this first — see below)
-js/gallery.js        Public gallery loader
-js/admin.js          Admin upload/delete logic
-assets/logo-placeholder.svg   Placeholder mark — replace with the real logo
-```
+## Run locally with XAMPP
 
-## 1. Add the real logo
-No logo file came through with this request, so a simple placeholder mark is
-used in the header and footer (`assets/logo-placeholder.svg`). Drop the real
-logo file into `assets/` (e.g. `logo.svg` or `logo.png`) and replace every
-`assets/logo-placeholder.svg` reference across the HTML files with its path.
-
-## 2. Set up the Gallery (GitHub-backed, no database)
-The Gallery page needed a way to add/remove photos without a server, so it
-uses a GitHub repository as the storage:
-
-1. Create a **public** GitHub repository (e.g. `ayurhitham-gallery`).
-2. Open `js/config.js` and fill in:
-   ```js
-   window.GALLERY_CONFIG = {
-     owner:  "your-github-username",
-     repo:   "ayurhitham-gallery",
-     branch: "main",
-     path:   "gallery-images"
-   };
+1. Install XAMPP with Apache, MySQL and PHP, and put this project folder under
+   `C:\xampp\htdocs`.
+2. Start Apache and MySQL in the XAMPP Control Panel.
+3. In phpMyAdmin, create a database named `ayurhitham` using `utf8mb4`.
+4. Copy `config.example.php` to `config.php`, then set `DB_HOST`, `DB_NAME`,
+   `DB_USER` and `DB_PASSWORD` to match your MySQL account. For production,
+   use a dedicated MySQL account with access only to this database; do not use
+   the MySQL root account. `config.php` is ignored by Git so credentials are
+   not added to commits.
+5. In a command prompt, change to the project folder and run:
+   ```text
+   C:\xampp\php\php.exe create_admin.php
    ```
-   This file is public (anyone can view it) — it holds no secrets.
-3. On GitHub, go to **Settings → Developer settings → Personal access
-   tokens → Fine-grained tokens** and create one scoped to **only** that
-   repository, with **Contents: Read and write** permission and nothing
-   else. Set a short expiry and regenerate it periodically.
-4. Open `admin.html` directly in a browser (it's deliberately not linked
-   from the site menu), paste the token in, and click **Connect**. You can
-   then drag and drop photos in, or remove existing ones.
-5. The public `gallery.html` page needs no token — it only reads the
-   repo's image list, which GitHub allows anonymously.
+   Enter an admin username and a password of at least 12 characters. The
+   script creates the tables and imports the three bundled gallery photos.
+   On an existing installation, running it again adds the image collection
+   field while leaving the existing admin account unchanged.
+6. Visit `http://localhost/Ayurhitham-main/admin.php` and sign in. The public
+   gallery is at `http://localhost/Ayurhitham-main/gallery.html`.
 
-**Security note:** a token typed into `admin.html` is kept only in that
-browser tab's session storage — it disappears when the tab is closed and is
-never written to any file. Still, treat `admin.html`'s URL as private
-(don't link to it publicly), use a token scoped to nothing but the gallery
-repo, and avoid managing the gallery on a shared/public computer.
+The PHP account running Apache must be able to write to `gallery-images`.
+For uploads up to 8 MB, PHP's `upload_max_filesize` must be at least `8M` and
+`post_max_size` must be greater than `8M`. Enable PDO MySQL and Fileinfo in
+PHP. Use HTTPS when hosting the site publicly.
 
-## 3. WhatsApp number
-The floating WhatsApp button, the Contact page and the Book Now page all
-link to `https://wa.me/918547478804` (+91 8547478804). The landline is
-0471 2210119. To change the WhatsApp number, search for `918547478804`
-across the HTML files and `book.html`'s script and replace it.
+## Admin and gallery
 
-## 4. Address & map
-The website lists the address as:
-`Club Mahindra Road, Virali, Poovar, Uchakkada PO, Trivandrum`
-and the email as `ayurhithamayurveda@gmail.com`. The Contact page embeds
-Google Maps for this address using a key-free
-`google.com/maps?...&output=embed` URL. No contact form is included there,
-as requested — WhatsApp and phone are the two contact paths.
+`admin.php` authenticates against the `admin_users` MySQL table using
+password hashes and PHP sessions. There is no public registration. The
+dashboard uses a sidebar to open separate Gallery, Reviews, and Homestay
+management pages (`admin.php?section=gallery`, `admin.php?section=reviews`,
+and `admin.php?section=homestay`). It provides collections for the public gallery, Google review
+screenshots shown in the home-page slider, and homestay photos shown on the
+Homestay page. Upload real review screenshots only with the reviewer's
+permission. JPG, PNG, WEBP, GIF and AVIF photos are supported; image metadata
+is stored in the `gallery_images` table and the files live in
+`gallery-images`. `api/gallery.php` serves the public image lists and checks
+the signed-in session and CSRF token for upload and delete requests.
 
-## 5. Book Now page
-Since there's no backend to store bookings, the Book Now form builds a
-pre-filled WhatsApp message from what the visitor enters and opens
-WhatsApp with it ready to send — your front desk confirms the slot by
-replying there.
+Do not expose database credentials, use a strong unique admin password, and
+keep PHP and MySQL patched. Back up both the `gallery_images` table and the
+`gallery-images` directory.
 
-## 6. Hosting
-Any static host works (GitHub Pages, Netlify, Vercel, or a plain web
-server) — just upload the whole folder as-is.
+## Other site details
+
+- The floating WhatsApp button, Contact page and Book Now page use
+  `https://wa.me/918547478804` (+91 8547478804). The landline is 0471 2210119.
+- The listed address is Club Mahindra Road, Virali, Poovar, Uchakkada PO,
+  Trivandrum; the email is ayurhithamayurveda@gmail.com.
+- Book Now opens WhatsApp with a pre-filled message; bookings are not stored
+  by the site.
