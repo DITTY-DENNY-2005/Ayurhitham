@@ -89,6 +89,12 @@ p{ margin:0 0 1em; color:var(--ink-600); max-width:62ch; }
   object-fit:cover; opacity:.16; pointer-events:none;
 }
 .homestay-forest > .container{ position:relative; z-index:1; }
+.homestay-gallery__item{
+  margin:0; overflow:hidden; border-radius:var(--radius-lg);
+  background:var(--white); box-shadow:var(--shadow-soft);
+}
+.homestay-gallery__item img{ width:100%; aspect-ratio:4/3; object-fit:cover; }
+.homestay-gallery__item figcaption{ padding:14px 18px; color:var(--forest-700); font-weight:600; }
 .section--sage{ background:var(--sage-200); }
 
 .eyebrow{
@@ -503,6 +509,7 @@ body.is-loading .page-veil{ transform-origin:top; animation:veil-out .6s var(--e
    TREATMENTS
    ========================================================= */
 .treatments-hero h1{ max-width:18ch; }
+.treatments-hero__approach{ color:var(--white); }
 .treatments-section{ padding-block:clamp(64px,8vw,104px); }
 .treatments-heading{ max-width:760px; margin-bottom:34px; }
 .treatment-list{
@@ -586,11 +593,9 @@ body.is-loading .page-veil{ transform-origin:top; animation:veil-out .6s var(--e
 .team-profile__aside{
   padding:clamp(28px,5vw,52px); background:linear-gradient(155deg,var(--forest-700),var(--forest-900));
 }
-.team-profile__monogram{
-  width:112px; height:112px; display:flex; align-items:center; justify-content:center;
+.team-profile__photo{
+  width:112px; height:112px; object-fit:cover; object-position:center 28%;
   margin-bottom:30px; border:1px solid rgba(227,184,102,.45); border-radius:50%;
-  background:rgba(255,255,255,.06); color:var(--gold-300);
-  font-family:var(--font-display); font-size:2.6rem;
 }
 .team-profile__aside .team-role{ color:var(--gold-300); margin-bottom:10px; }
 .team-profile__aside h2{ color:var(--white); font-size:clamp(1.7rem,3vw,2.25rem); }
@@ -621,7 +626,7 @@ body.is-loading .page-veil{ transform-origin:top; animation:veil-out .6s var(--e
 @media (max-width:760px){
   .team-profile{ grid-template-columns:1fr; }
   .team-profile__aside{ padding:30px; }
-  .team-profile__monogram{ width:88px; height:88px; margin-bottom:22px; font-size:2.1rem; }
+  .team-profile__photo{ width:88px; height:88px; margin-bottom:22px; }
 }
 @media (max-width:540px){
   .therapist-panel{ grid-template-columns:1fr; gap:18px; }
